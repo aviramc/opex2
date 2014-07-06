@@ -65,6 +65,7 @@ bool rb_tree_remove(rb_tree_t *tree, void *key, void **deleted);
 
 /* rb_tree_fetch_smallest - Search for the smallest key that is larger than or equal to the given key.
    If there's no key larger than or equal to the key, NULL is returned.
+   If an allocation error occurs, NULL is returned.
  */
 void * rb_tree_search_smallest(rb_tree_t *tree, void *key);
 
