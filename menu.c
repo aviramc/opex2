@@ -3,7 +3,7 @@
 
 #include "menu.h"
 
-void print_menu(menu_item_t menu_items[], unsigned int items)
+void menu_print(menu_item_t menu_items[], unsigned int items)
 {
     unsigned int i = 0;
 
@@ -13,14 +13,14 @@ void print_menu(menu_item_t menu_items[], unsigned int items)
 }
 
 
-void run_menu(menu_item_t menu_items[], unsigned int items)
+void menu_run(menu_item_t menu_items[], unsigned int items)
 {
     unsigned int option;
     bool running = true;
 
     while (running) {
         /* TODO: Clear screen */
-        print_menu(menu_items, items);
+        menu_print(menu_items, items);
         /* TODO: Usage of scanf */
         scanf("%d", &option);
         if (option < items) {
@@ -28,5 +28,11 @@ void run_menu(menu_item_t menu_items[], unsigned int items)
         } else {
             printf("Invalid option: %d\n", option);
         }
+        printf("\n");
     }
+}
+
+bool menu_quit(void *nothing)
+{
+    return false;
 }
