@@ -57,10 +57,11 @@ bool rb_tree_insert(rb_tree_t *tree, void *key, bool *exists);
 
 /* rb_tree_remove - Remove the given tree from the key.
    If the key exists, its reference count is decreased. If it is decreased to zero, it is removed
-   from the tree and deleted would contain true (otherwise false). In this case, true is returned.
+   from the tree and deleted would contain a pointer to the key is returned (so that it can be freed),
+   or NULL otherwise. In this case, true is returned.
    If the key doesn't exist, false is returned.
  */
-bool rb_tree_remove(rb_tree_t *tree, void *key, bool *deleted);
+bool rb_tree_remove(rb_tree_t *tree, void *key, void **deleted);
 
 /* rb_tree_fetch_smallest - Search for the smallest key that is larger than or equal to the given key.
    If there's no key larger than or equal to the key, NULL is returned.

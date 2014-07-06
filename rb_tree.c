@@ -119,11 +119,11 @@ bool rb_tree_insert(rb_tree_t *tree, void *key, bool *exists)
     return true;
 }
 
-bool rb_tree_remove(rb_tree_t *tree, void *key, bool *deleted)
+bool rb_tree_remove(rb_tree_t *tree, void *key, void **deleted)
 {
     rb_tree_node_t *node = rb_tree_search(tree, tree->head, key);
 
-    *deleted = false;
+    *deleted = NULL;
 
     if (NULL == node) {
         return false;
@@ -132,8 +132,8 @@ bool rb_tree_remove(rb_tree_t *tree, void *key, bool *deleted)
     node->count -= 1;
 
     if (node->count == 0) {
+        *deleted = node->key;
         rb_tree_delete(tree, node);
-        *deleted = true;
     }
 
     return true;
