@@ -9,11 +9,12 @@
    holds a single node per key. The user does not manage the nodes of the tree, but just its keys.
  */
 
-/* rb_tree_search_smallest - Search for the smallest key larger than/equal to key.
+/* rb_tree_search_smallest_node - Search for the node with the smallest key larger than/equal to key.
    If no such key is found (meaning that the tree is empty or that there are no smaller keys),
    NULL is returned. Otherwise, a pointer to the tree node is returned.
+   An internal function to be used by rb_tree_search_smallest.
  */
-static rb_tree_node_t* rb_tree_search_smallest(rb_tree_t *tree, rb_tree_node_t *node, void *key);
+static rb_tree_node_t* rb_tree_search_smallest_node(rb_tree_t *tree, rb_tree_node_t *node, void *key);
 
 /* rb_tree_delete - remove a node from the tree. Based on the book's implementation.
    Note that we don't free key; the user is responsible for the keys' memory management.
@@ -118,25 +119,35 @@ bool rb_tree_insert(rb_tree_t *tree, void *key, bool *exists)
     return true;
 }
 
-void * rb_tree_fetch_smallest(rb_tree_t *tree, void *key, bool *deleted)
+bool rb_tree_remove(rb_tree_t *tree, void *key, bool *deleted)
 {
-    rb_tree_node_t *node = rb_tree_search_smallest(tree, tree->head, key);
-    void *found_key = NULL;
-    
+    rb_tree_node_t *node = rb_tree_search(tree, tree->head, key);
+
     *deleted = false;
+
+    if (NULL == node) {
+        return false;
+    }
+
+    node->count -= 1;
+
+    if (node->count == 0) {
+        rb_tree_delete(tree, node);
+        *deleted = true;
+    }
+
+    return true;
+}
+
+void * rb_tree_search_smallest(rb_tree_t *tree, void *key)
+{
+    rb_tree_node_t *node = rb_tree_search_smallest_node(tree, tree->head, key);
 
     if (NULL == node) {
         return NULL;
     }
 
-    found_key = node->key;
-    node->count -= 1;
-    if (0 == node->count) {
-        rb_tree_delete(tree, node);
-        *deleted = true;
-    }
-
-    return found_key;
+    return node->key;
 }
 
 void rb_tree_in_order(rb_tree_t *tree, rb_tree_node_t *node, void (*callback)(rb_tree_t *tree, rb_tree_node_t *node))
@@ -156,11 +167,7 @@ void rb_tree_in_order(rb_tree_t *tree, rb_tree_node_t *node, void (*callback)(rb
     }
 }
 
-/* rb_tree_search_smallest - Search recursively for the smallest node larger than or equal to key.
-   An internal function, should be called with tree->head.
-   Returns NULL if there are no nodes in the tree or if a larger node is not found.
- */
-static rb_tree_node_t* rb_tree_search_smallest(rb_tree_t *tree, rb_tree_node_t *node, void *key)
+static rb_tree_node_t* rb_tree_search_smallest_node(rb_tree_t *tree, rb_tree_node_t *node, void *key)
 {
     int compare = 0;
 
@@ -180,7 +187,7 @@ static rb_tree_node_t* rb_tree_search_smallest(rb_tree_t *tree, rb_tree_node_t *
         if (IS_NIL(tree, node->left)) {
             return node;
         }
-        return rb_tree_search_smallest(tree, node->left, key);
+        return rb_tree_search_smallest_node(tree, node->left, key);
     } else {
         /* key > node->key */
         if (IS_NIL(tree, node->right)) {
@@ -188,7 +195,7 @@ static rb_tree_node_t* rb_tree_search_smallest(rb_tree_t *tree, rb_tree_node_t *
                so we have to return NULL */
             return NULL;
         }
-        return rb_tree_search_smallest(tree, node->right, key);
+        return rb_tree_search_smallest_node(tree, node->right, key);
     }
 }
 
@@ -425,7 +432,6 @@ static rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node)
     }
 }
 
-/* TODO: doc */
 static rb_tree_node_t* rb_tree_search(rb_tree_t *tree, rb_tree_node_t *node, void *key)
 {
     int compare = 0;

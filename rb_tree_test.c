@@ -63,7 +63,8 @@ int main(void)
 
     printf("\nRemoving the head of the tree (which is %d):\n", *(int *)tree->head->key);
     key = tree->head->key;
-    assert(key == rb_tree_fetch_smallest(tree, key, &result));
+    assert(key == rb_tree_search_smallest(tree, key));
+    assert(rb_tree_remove(tree, key, &result));
     assert(result == true);
     print_tree(tree);
     
@@ -85,11 +86,13 @@ int main(void)
         printf("Removing member %d", keys[i]);
         if (i % 2 == 0) {
             printf(" (removing twice)");
-            assert(&keys[i] == rb_tree_fetch_smallest(tree, &keys[i], &result));
+            assert(&keys[i] == rb_tree_search_smallest(tree, &keys[i]));
+            assert(rb_tree_remove(tree, &keys[i], &result));
             assert(result == false);
         }
         printf(":\n");
-        assert(&keys[i] == rb_tree_fetch_smallest(tree, &keys[i], &result));
+        assert(&keys[i] == rb_tree_search_smallest(tree, &keys[i]));
+        assert(rb_tree_remove(tree, &keys[i], &result));
         assert(result == true);
         print_tree(tree);
     }
@@ -100,14 +103,25 @@ int main(void)
         assert(result == false);
     }
 
-    printf("Verifying 'fetch_smallest'...\n");
+    printf("Verifying 'search_smallest'...\n");
     /* XXX: The following is hard coded based on the numbers in the test array (generated randomly) */
     temp = 65;
-    assert(73 == *(int *)rb_tree_fetch_smallest(tree, &temp, &result));
+    assert(73 == *(int *)rb_tree_search_smallest(tree, &temp));
+    temp = 73;
+    assert(rb_tree_remove(tree, &temp, &result));
+    assert(result == true);
+
     temp = 80;
-    assert(82 == *(int *)rb_tree_fetch_smallest(tree, &temp, &result));
+    assert(82 == *(int *)rb_tree_search_smallest(tree, &temp));
+    temp = 82;
+    assert(rb_tree_remove(tree, &temp, &result));
+    assert(result == true);
+
     temp = -30;
-    assert(2 == *(int *)rb_tree_fetch_smallest(tree, &temp, &result));
+    assert(2 == *(int *)rb_tree_search_smallest(tree, &temp));
+    temp = 2;
+    assert(rb_tree_remove(tree, &temp, &result));
+    assert(result == true);
     printf("Verify that keys 2, 73 & 82 don't exist in the tree\n");
     print_tree(tree);
     

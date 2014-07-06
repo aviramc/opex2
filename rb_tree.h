@@ -55,13 +55,17 @@ rb_tree_t *rb_tree_create(rb_tree_key_cmp_t key_cmp);
  */
 bool rb_tree_insert(rb_tree_t *tree, void *key, bool *exists);
 
-/* rb_tree_fetch_smallest - Fetch the smallest key that is larger than or equal to the given key.
-   If there's no key larger than or equal to the key, NULL is returned.
-   The key is removed from the tree, and its count is reduces.
-   When the key's count is zero, it is removed from the tree, and deleted would contain true, so
-   that one would be able to free the key.
+/* rb_tree_remove - Remove the given tree from the key.
+   If the key exists, its reference count is decreased. If it is decreased to zero, it is removed
+   from the tree and deleted would contain true (otherwise false). In this case, true is returned.
+   If the key doesn't exist, false is returned.
  */
-void * rb_tree_fetch_smallest(rb_tree_t *tree, void *key, bool *deleted);
+bool rb_tree_remove(rb_tree_t *tree, void *key, bool *deleted);
+
+/* rb_tree_fetch_smallest - Search for the smallest key that is larger than or equal to the given key.
+   If there's no key larger than or equal to the key, NULL is returned.
+ */
+void * rb_tree_search_smallest(rb_tree_t *tree, void *key);
 
 /* rb_tree_in_order - scan the tree in order and call callback for each node, starting from the given node.
    In order to scan the entire tree, pass tree->head in node.
