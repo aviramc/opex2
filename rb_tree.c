@@ -4,13 +4,39 @@
 
 #define IS_NIL(tree, node) (&((tree)->nil) == (node))
 
+/* The following static functions are internal to the module. Some of which are regular red-black tree
+   operations, but we decided not to expose them to the user, as this is a specific red-black tree which
+   holds a single node per key. The user does not manage the nodes of the tree, but just its keys.
+ */
+
+/* rb_tree_search_smallest - Search for the smallest key larger than/equal to key.
+   If no such key is found (meaning that the tree is empty or that there are no smaller keys),
+   NULL is returned. Otherwise, a pointer to the tree node is returned.
+ */
 static rb_tree_node_t* rb_tree_search_smallest(rb_tree_t *tree, rb_tree_node_t *node, void *key);
+
+/* rb_tree_delete - remove a node from the tree. Based on the book's implementation.
+   Note that we don't free key; the user is responsible for the keys' memory management.
+ */
 static void rb_tree_delete(rb_tree_t *tree, rb_tree_node_t *z);
+
+/* rb_tree_delete_fixup - helper function for the delete function. Based on the book's implementation.
+ */
 static void rb_tree_delete_fixup(rb_tree_t *tree, rb_tree_node_t *x);
+
+/* rb_tree_delete_fixup - helper function for the insert function. Based on the book's implementation.
+ */
 static void rb_tree_insert_fixup(rb_tree_t *tree, rb_tree_node_t *z);
+
+/* rb_tree_rotate_left, rb_tree_rotate_right - tree rotate functions, based on the book's implementation. */
 static void rb_tree_rotate_left(rb_tree_t *tree, rb_tree_node_t *x);
 static void rb_tree_rotate_right(rb_tree_t *tree, rb_tree_node_t *x);
+
+/* rb_tree_successor - get the successor in the tree for node. Based on the book's implementation. */
 static rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node);
+
+/* rb_tree_search - an exact key search in the tree. The node containing an equal key is returned,
+   or NULL if not found. */
 static rb_tree_node_t* rb_tree_search(rb_tree_t *tree, rb_tree_node_t *node, void *key);
 
 rb_tree_t *rb_tree_create(rb_tree_key_cmp_t key_cmp)
@@ -166,9 +192,6 @@ static rb_tree_node_t* rb_tree_search_smallest(rb_tree_t *tree, rb_tree_node_t *
     }
 }
 
-/* rb_tree_delete - remove a node from the tree. Based on the book's implementation.
-   Note that we don't free key; the user is responsible for the keys' memory management.
- */
 static void rb_tree_delete(rb_tree_t *tree, rb_tree_node_t *z)
 {
     rb_tree_node_t *y = NULL;
@@ -214,8 +237,6 @@ static void rb_tree_delete(rb_tree_t *tree, rb_tree_node_t *z)
     free(y);
 }
 
-/* rb_tree_delete_fixup - fixup for the red black structure, taken from the book.
- */
 static void rb_tree_delete_fixup(rb_tree_t *tree, rb_tree_node_t *x)
 {
     rb_tree_node_t *head = tree->head;

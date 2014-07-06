@@ -50,6 +50,8 @@ rb_tree_t *rb_tree_create(rb_tree_key_cmp_t key_cmp);
    If the key already exists, its reference count is increased, and exists would be true,
    so that one would know wether to free or not the key.
    Returns false if an allocation fails, true otherwise.
+
+   The node insertion's implementation is based on the book's implementation.
  */
 bool rb_tree_insert(rb_tree_t *tree, void *key, bool *exists);
 
@@ -61,8 +63,8 @@ bool rb_tree_insert(rb_tree_t *tree, void *key, bool *exists);
  */
 void * rb_tree_fetch_smallest(rb_tree_t *tree, void *key, bool *deleted);
 
-/* rb_tree_in_order - scan the tree in order and call callback for each node.
-   Should be initially called with tree->head.
+/* rb_tree_in_order - scan the tree in order and call callback for each node, starting from the given node.
+   In order to scan the entire tree, pass tree->head in node.
  */
 void rb_tree_in_order(rb_tree_t *tree, rb_tree_node_t *node, void (*callback)(rb_tree_t *tree, rb_tree_node_t *node));
 
