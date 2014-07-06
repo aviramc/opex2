@@ -1,28 +1,26 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include "box_factory.h"
+#include "box_menu.h"
 #include "menu.h"
-
-#define NUMBER_OF_ACTIONS (5)
-
-static bool test_callback(void *nothing)
-{
-    printf("AAAA\n");
-    return true;
-}
-
-static bool exit_callback(void *nothing)
-{
-    printf("Goodbye\n");
-    return false;
-}
 
 int main(void)
 {
-    menu_item_t MENU_ITEMS[NUMBER_OF_ACTIONS] = {{test_callback, "Test callback", NULL},
-                                                 {exit_callback, "Exit", NULL},
+    box_factory_t *factory = box_factory_create();
+    menu_item_t menu_items[] = {{box_menu_insert, "Insert a box", factory},
+                                {box_menu_remove, "Remove a box", factory},
+                                {box_menu_get, "Get the sizes of an appropriate box", factory},
+                                {box_menu_check, "Check if a box in an appropriate box exists", factory},
+                                MENU_QUIT_ACTION,
     };
 
-    run_menu(MENU_ITEMS, 2);
+    if (NULL == factory) {
+        printf("Fatal error: unable to create factory object (out of memory)\n");
+        return -1;
+    }
+
+    menu_run(menu_items, sizeof(menu_items) / sizeof(menu_item_t));
+
     return 0;
 }
