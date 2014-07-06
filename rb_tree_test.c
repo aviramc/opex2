@@ -17,6 +17,12 @@ static void print_key(rb_tree_t *tree, rb_tree_node_t *node)
     printf("%d #%u [%c] ", *((int *)node->key), node->count, color);
 }
 
+static void print_tree(rb_tree_t *tree)
+{
+    rb_tree_in_order(tree, tree->head, print_key);
+    printf("\n");
+}
+
 static int compare_int(void *a, void *b)
 {
     int ia = *(int *)a;
@@ -36,80 +42,74 @@ static int compare_int(void *a, void *b)
 int main(void)
 {
     rb_tree_t *tree = NULL;
-    int keys[] = {2, 1, 3};
+    int keys[] = {73, 82, 76, 33, 64, 26, 29, 75, 11, 2};
     bool result = false;
-    int key = 0;
+    int *key = NULL;
+    int temp = 0;
     unsigned int i = 0;
+    const unsigned int unique_keys = sizeof(keys) / sizeof(int);
 
     tree = rb_tree_create(&compare_int);
 
     printf("Empty tree:\n");
-    rb_tree_in_order(tree, tree->head, print_key);
-    printf("\n");
+    print_tree(tree);
 
-    printf("Inserting member...\n");
-    rb_tree_insert(tree, &keys[0], &result);
-    assert(result == false);
-    rb_tree_in_order(tree, tree->head, print_key);
-    printf("\n");
+    for (i = 0; i < unique_keys; i++) {
+        printf("Inserting member %d:\n", keys[i]);
+        assert(rb_tree_insert(tree, &keys[i], &result) == true);
+        assert(result == false);
+        print_tree(tree);
+    }
 
-    printf("Inserting two new members...\n");
-    rb_tree_insert(tree, &keys[1], &result);
-    assert(result == false);
-    rb_tree_insert(tree, &keys[2], &result);
-    assert(result == false);
-    rb_tree_in_order(tree, tree->head, print_key);
-    printf("\n");
-
-    printf("Removing member with key 1\n");
-    key = 1;
-    rb_tree_fetch_smallest(tree, &key, &result);
+    printf("\nRemoving the head of the tree (which is %d):\n", *(int *)tree->head->key);
+    key = tree->head->key;
+    assert(key == rb_tree_fetch_smallest(tree, key, &result));
     assert(result == true);
-    rb_tree_in_order(tree, tree->head, print_key);
-    printf("\n");
-
-    printf("Inserting member with key 1 twice\n");
-    rb_tree_insert(tree, &keys[1], &result);
-    assert(result == false);
-    printf("First time\n");
-    rb_tree_in_order(tree, tree->head, print_key);
-    key = 1;
-    rb_tree_insert(tree, &key, &result);
-    assert(result == true);
-    printf("\nSecond time\n");
-    rb_tree_in_order(tree, tree->head, print_key);
-    printf("\n");
+    print_tree(tree);
     
-    printf("Inserting member with key 3 twice\n");
-    rb_tree_insert(tree, &keys[2], &result);
-    assert(result == true);
-    printf("First time\n");
-    rb_tree_in_order(tree, tree->head, print_key);
-    key = 3;
-    rb_tree_insert(tree, &key, &result);
-    assert(result == true);
-    printf("\nSecond time\n");
-    rb_tree_in_order(tree, tree->head, print_key);
-    printf("\n");
+    printf("Inserting back %d:\n", *key);
+    assert(rb_tree_insert(tree, key, &result) == true);
+    assert(result == false);
+    print_tree(tree);
+    
+    printf("Inserting again all 2nd keys\n");
+    for (i = 0; i < unique_keys; i += 2) {
+        printf("Inserting member %d:\n", keys[i]);
+        assert(rb_tree_insert(tree, &keys[i], &result) == true);
+        assert(result == true);
+        print_tree(tree);
+    }
 
-    printf("Emptying tree\n");
-    key = 2;
-    rb_tree_fetch_smallest(tree, &key, &result);
-    assert(result == true);
-    key = 1;
-    rb_tree_fetch_smallest(tree, &key, &result);
-    assert(result == false);
-    rb_tree_fetch_smallest(tree, &key, &result);
-    assert(result == true);
-    key = 3;
-    rb_tree_fetch_smallest(tree, &key, &result);
-    assert(result == false);
-    rb_tree_fetch_smallest(tree, &key, &result);
-    assert(result == false);
-    rb_tree_fetch_smallest(tree, &key, &result);
-    assert(result == true);
-    rb_tree_in_order(tree, tree->head, print_key);
-    printf("\n");
+    printf("Emptying tree:\n");
+    for (i = 0; i < unique_keys; i++) {
+        printf("Removing member %d", keys[i]);
+        if (i % 2 == 0) {
+            printf(" (removing twice)");
+            assert(&keys[i] == rb_tree_fetch_smallest(tree, &keys[i], &result));
+            assert(result == false);
+        }
+        printf(":\n");
+        assert(&keys[i] == rb_tree_fetch_smallest(tree, &keys[i], &result));
+        assert(result == true);
+        print_tree(tree);
+    }
 
+    printf("Rebuilding tree...\n");
+    for (i = 0; i < unique_keys; i++) {
+        assert(rb_tree_insert(tree, &keys[i], &result) == true);
+        assert(result == false);
+    }
+
+    printf("Verifying 'fetch_smallest'...\n");
+    /* XXX: The following is hard coded based on the numbers in the test array (generated randomly) */
+    temp = 65;
+    assert(73 == *(int *)rb_tree_fetch_smallest(tree, &temp, &result));
+    temp = 80;
+    assert(82 == *(int *)rb_tree_fetch_smallest(tree, &temp, &result));
+    temp = -30;
+    assert(2 == *(int *)rb_tree_fetch_smallest(tree, &temp, &result));
+    printf("Verify that keys 2, 73 & 82 don't exist in the tree\n");
+    print_tree(tree);
+    
     return 0;
 }

@@ -7,11 +7,11 @@
 static rb_tree_node_t* rb_tree_search_smallest(rb_tree_t *tree, rb_tree_node_t *node, void *key);
 static void rb_tree_delete(rb_tree_t *tree, rb_tree_node_t *z);
 static void rb_tree_delete_fixup(rb_tree_t *tree, rb_tree_node_t *x);
+static void rb_tree_insert_fixup(rb_tree_t *tree, rb_tree_node_t *z);
 static void rb_tree_rotate_left(rb_tree_t *tree, rb_tree_node_t *x);
-static void rb_tree_rotate_right(rb_tree_t *tree, rb_tree_node_t *y);
+static void rb_tree_rotate_right(rb_tree_t *tree, rb_tree_node_t *x);
 static rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node);
 static rb_tree_node_t* rb_tree_search(rb_tree_t *tree, rb_tree_node_t *node, void *key);
-static void binary_search_tree_insert(rb_tree_t *tree, rb_tree_node_t *z);
 
 rb_tree_t *rb_tree_create(rb_tree_key_cmp_t key_cmp)
 {
@@ -26,9 +26,9 @@ rb_tree_t *rb_tree_create(rb_tree_key_cmp_t key_cmp)
     rb_tree->nil.key = NULL;
     rb_tree->nil.count = 0;
     rb_tree->nil.color = BLACK;
-    rb_tree->nil.parent = NULL;
-    rb_tree->nil.left = NULL;
-    rb_tree->nil.right = NULL;
+    rb_tree->nil.parent = &(rb_tree->nil);
+    rb_tree->nil.left = &(rb_tree->nil);
+    rb_tree->nil.right = &(rb_tree->nil);
 
     rb_tree->head = &(rb_tree->nil);
     rb_tree->key_cmp = key_cmp;
@@ -40,7 +40,7 @@ bool rb_tree_insert(rb_tree_t *tree, void *key, bool *exists)
 {
     rb_tree_node_t *x = NULL;
     rb_tree_node_t *y = NULL;
-    rb_tree_node_t *new = NULL;
+    rb_tree_node_t *z = NULL;
 
     *exists = false;
 
@@ -53,67 +53,41 @@ bool rb_tree_insert(rb_tree_t *tree, void *key, bool *exists)
     }
 
     /* If the key doesn't exist, we need to allocate a new node for the key, and actually insert it */
-    new = (rb_tree_node_t *) calloc(sizeof(rb_tree_node_t), 1);
-    if (NULL == new) {
+    z = (rb_tree_node_t *) calloc(sizeof(rb_tree_node_t), 1);
+    if (NULL == z) {
         return false;
     }
-    new->key = key;
-    new->count = 1;
-    
-    /* If the tree is empty, the insertion is pretty easy... */
-    if (IS_NIL(tree, tree->head)) {
-        new->left = &(tree->nil);
-        new->right = &(tree->nil);
-        new->parent = NULL;
-        new->color = BLACK;
-        tree->head = new;
+    z->key = key;
+    z->count = 1;
 
-        return true;
-    }
+    y = &(tree->nil);
+    x = tree->head;
 
-    /* TODO: Compare with the book's implementation */
-    new->color = RED;
-
-    /* First, insert the new node as a red leaf just like a binary search tree would */
-    binary_search_tree_insert(tree, new);
-    x = new;
-    /* Direct implementation of the book */
-    while (x->parent->color == RED) {
-        if (x->parent == x->parent->parent->left) {
-            y = x->parent->parent->right;
-            if (y->color == RED) {
-                x->parent->color = BLACK;
-                y->color = BLACK;
-                x->parent->parent->color = RED;
-                x = x->parent->parent;
-            } else {
-                if (x == x->parent->right) {
-                    x = x->parent;
-                    rb_tree_rotate_left(tree, x);
-                }
-                x->parent->color = BLACK;
-                x->parent->parent->color = RED;
-                rb_tree_rotate_right(tree, x->parent->parent);
-            }
+    while (!IS_NIL(tree, x)) {
+        y = x;
+        /* z->key < x->key */
+        if (tree->key_cmp(z->key, x->key) < 0) {
+            x = x->left;
         } else {
-            y = x->parent->parent->left;
-            if (y->color == RED) {
-                x->parent->color = BLACK;
-                y->color = BLACK;
-                x->parent->parent->color = RED;
-                x = x->parent->parent;
-            } else {
-                if (x == x->parent->left) {
-                    x = x->parent;
-                    rb_tree_rotate_right(tree, x);
-                }
-                x->parent->color = BLACK;
-                x->parent->parent->color = RED;
-                rb_tree_rotate_left(tree, x->parent->parent);
-            }
+            x = x->right;
         }
     }
-    tree->head->color = BLACK;
+
+    z->parent = y;
+    if (IS_NIL(tree, y)) {
+        tree->head = z;
+    } else {
+        /* z->key < y->key */
+        if (tree->key_cmp(z->key, y->key) < 0) {
+            y->left = z;
+        } else {
+            y->right = z;
+        }
+    }
+    z->left = &(tree->nil);
+    z->right = &(tree->nil);
+    z->color = RED;
+    rb_tree_insert_fixup(tree, z);
 
     return true;
 }
@@ -197,13 +171,10 @@ static rb_tree_node_t* rb_tree_search_smallest(rb_tree_t *tree, rb_tree_node_t *
  */
 static void rb_tree_delete(rb_tree_t *tree, rb_tree_node_t *z)
 {
-    rb_tree_node_t *head = NULL;
     rb_tree_node_t *y = NULL;
     rb_tree_node_t *x = NULL;
 
-    head = tree->head;
-
-    if (IS_NIL(tree, z->left) && IS_NIL(tree, z->right)) {
+    if (IS_NIL(tree, z->left) || IS_NIL(tree, z->right)) {
         y = z;
     } else {
         y = rb_tree_successor(tree, z);
@@ -216,8 +187,9 @@ static void rb_tree_delete(rb_tree_t *tree, rb_tree_node_t *z)
     }
 
     x->parent = y->parent;
-    if (head == x->parent) {
-        head->left = x;
+
+    if (IS_NIL(tree, y->parent)) {
+        tree->head = x;
     } else {
         if (y == y->parent->left) {
             y->parent->left = x;
@@ -227,32 +199,19 @@ static void rb_tree_delete(rb_tree_t *tree, rb_tree_node_t *z)
     }
 
     if (y != z) {
-        if (y->color == BLACK) {
-            rb_tree_delete_fixup(tree, x);
-        }
-
-        y->left = z->left;
-        y->right = z->right;
-        y->parent = z->parent;
-        y->color = z->color;
-
-        z->left->parent = y;
-        z->right->parent = y;
-
-        if (z == z->parent->left) {
-            z->parent->left = y;
-        } else {
-            z->parent->right = y;
-        }
-
-        free(z);
-    } else {
-        if (y->color == BLACK) {
-            rb_tree_delete_fixup(tree, x);
-        }
-
-        free(y);
+        /* z->left = y->left; */
+        /* z->right = y->right; */
+        /* z->parent = y->parent; */
+        /* z->color = y->color; */
+        z->key = y->key;
+        z->count = y->count;
     }
+
+    if (y->color == BLACK) {
+        rb_tree_delete_fixup(tree, x);
+    }
+
+    free(y);
 }
 
 /* rb_tree_delete_fixup - fixup for the red black structure, taken from the book.
@@ -316,6 +275,54 @@ static void rb_tree_delete_fixup(rb_tree_t *tree, rb_tree_node_t *x)
     x->color = BLACK;
 }
 
+static void rb_tree_insert_fixup(rb_tree_t *tree, rb_tree_node_t *z)
+{
+    rb_tree_node_t *y = NULL;
+
+    while (z->parent->color == RED) {
+        if (z->parent == z->parent->parent->left) {
+            y = z->parent->parent->right;
+            /* Case #1 */
+            if (y->color == RED) {
+                z->parent->color = BLACK;
+                y->color = BLACK;
+                z->parent->parent->color = RED;
+                z = z->parent->parent;
+            } else {
+                /* Case #2 */
+                if (z == z->parent->right) {
+                    z = z->parent;
+                    rb_tree_rotate_left(tree, z);
+                }
+                /* Case #3 */
+                z->parent->color = BLACK;
+                z->parent->parent->color = RED;
+                rb_tree_rotate_right(tree, z->parent->parent);
+            }
+        } else {
+            y = z->parent->parent->left;
+            /* Case #1 */
+            if (y->color == RED) {
+                z->parent->color = BLACK;
+                y->color = BLACK;
+                z->parent->parent->color = RED;
+                z = z->parent->parent;
+            } else {
+                /* Case #2 */
+                if (z == z->parent->left) {
+                    z = z->parent;
+                    rb_tree_rotate_right(tree, z);
+                }
+                /* Case #3 */
+                z->parent->color = BLACK;
+                z->parent->parent->color = RED;
+                rb_tree_rotate_left(tree, z->parent->parent);
+            }
+        }
+    }
+    tree->head->color = BLACK;
+}
+
 /* rb_tree_rotate_left - a left rotate implementation as shown in the book  */
 static void rb_tree_rotate_left(rb_tree_t *tree, rb_tree_node_t *x)
 {
@@ -330,11 +337,14 @@ static void rb_tree_rotate_left(rb_tree_t *tree, rb_tree_node_t *x)
 
     y->parent = x->parent;
 
-    /* TODO: Compare to the book, this is taken from the MIT guy's implementation */
-    if (x == x->parent->left) {
-        x->parent->left = y;
+    if (IS_NIL(tree, x->parent)) {
+        tree->head = y;
     } else {
-        x->parent->right = y;
+        if (x == x->parent->left) {
+            x->parent->left = y;
+        } else {
+            x->parent->right = y;
+        }
     }
 
     y->left = x;
@@ -342,31 +352,33 @@ static void rb_tree_rotate_left(rb_tree_t *tree, rb_tree_node_t *x)
 }
 
 /* rb_tree_rotate_right - a left rotate implementation as shown in the book  */
-static void rb_tree_rotate_right(rb_tree_t *tree, rb_tree_node_t *y)
+static void rb_tree_rotate_right(rb_tree_t *tree, rb_tree_node_t *x)
 {
-    rb_tree_node_t *x = NULL;
+    rb_tree_node_t *y = NULL;
 
-    x = y->left;
-    y->left = x->right;
+    y = x->left;
+    x->left = y->right;
 
-    if (!IS_NIL(tree, x->right)) {
-        x->right->parent = y;
+    if (!IS_NIL(tree, y->right)) {
+        y->right->parent = x;
     }
 
-    x->parent = y->parent;
+    y->parent = x->parent;
 
-    /* TODO: Same remark as in left rotate */
-    if (y == y->parent->left) {
-        y->parent->left = x;
+    if (IS_NIL(tree, x->parent)) {
+        tree->head = y;
     } else {
-        y->parent->right = x;
+        if (x == x->parent->right) {
+            x->parent->right = y;
+        } else {
+            x->parent->left = y;
+        }
     }
 
-    x->right = y;
-    y->parent = x;
+    y->right = x;
+    x->parent = y;
 }
 
-/* TODO: doc */
 static rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node)
 {
     rb_tree_node_t *y = NULL;
@@ -412,42 +424,5 @@ static rb_tree_node_t* rb_tree_search(rb_tree_t *tree, rb_tree_node_t *node, voi
     } else {
         /* key must be greater than node's key */
         return rb_tree_search(tree, node->right, key);
-    }
-}
-
-/* binary_search_tree_insert - insert a value to the red-black tree as if it is a binary
-   search tree. Based on the book's implementation.
- */
-static void binary_search_tree_insert(rb_tree_t *tree, rb_tree_node_t *z)
-{
-    rb_tree_node_t *x = NULL;
-    rb_tree_node_t *y = NULL;
-    int compare = 0;
-
-    z->left = &(tree->nil);
-    z->right = &(tree->nil);
-
-    y = tree->head;
-    x = y;
-
-    while (!IS_NIL(tree, x)) {
-        y = x;
-        compare = tree->key_cmp(z->key, x->key);
-
-        /* z->key < x->key */
-        if (compare < 0) {
-            x = x->left;
-        } else {
-            /* z->key >= x->key */
-            x = x->right;
-        }
-    }
-
-    z->parent = y;
-
-    if (tree->key_cmp(y->key, z->key) > 0) {
-        y->left = z;
-    } else {
-        y->right = z;
     }
 }
