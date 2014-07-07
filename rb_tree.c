@@ -169,6 +169,7 @@ void rb_tree_in_order(rb_tree_t *tree, rb_tree_node_t *node, void (*callback)(rb
 
 static rb_tree_node_t* rb_tree_search_smallest_node(rb_tree_t *tree, rb_tree_node_t *node, void *key)
 {
+    rb_tree_node_t *found = NULL;
     int compare = 0;
 
     if (IS_NIL(tree, node)) {
@@ -187,7 +188,16 @@ static rb_tree_node_t* rb_tree_search_smallest_node(rb_tree_t *tree, rb_tree_nod
         if (IS_NIL(tree, node->left)) {
             return node;
         }
-        return rb_tree_search_smallest_node(tree, node->left, key);
+        found = rb_tree_search_smallest_node(tree, node->left, key);
+
+        /* If no smaller key than the current key was found, and the current key is greater than the
+           given key, return the current key.
+         */
+        if (NULL == found) {
+            return node;
+        } else {
+            return found;
+        }
     } else {
         /* key > node->key */
         if (IS_NIL(tree, node->right)) {
