@@ -56,7 +56,7 @@ bool box_menu_get(void *box_factory_ptr)
     if (NULL == key) {
         printf("Error: No matching box found\n");
     } else {
-        printf("Found a box of with side=%d and height=%d\n", key->side, key->height);
+        printf("Found a box with side=%d and height=%d\n", key->side, key->height);
     }
 
     return true;
