@@ -23,6 +23,8 @@ bool box_menu_insert(void *box_factory_ptr)
     if (!box_factory_insert(factory, side, height)) {
         printf("Fatal error: Insertion failed (out of memory)\n");
         return false;
+    } else {
+        printf("Inserted a box with side=%d and height=%d\n", side, height);
     }
 
     return true;
@@ -38,6 +40,8 @@ bool box_menu_remove(void *box_factory_ptr)
 
     if (!box_factory_remove(factory, side, height)) {
         printf("Error: Box size not found\n");
+    } else {
+        printf("Removed a box with side=%d and height=%d\n", side, height);
     }
 
     return true;
