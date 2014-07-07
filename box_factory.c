@@ -170,6 +170,8 @@ static box_key_t* create_key(unsigned int side, unsigned int height)
 
     key->side = side;
     key->height = height;
+
+    return key;
 }
 
 static int compare_keys_vsh(void *a, void *b)
