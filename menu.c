@@ -19,9 +19,7 @@ void menu_run(menu_item_t menu_items[], unsigned int items)
     bool running = true;
 
     while (running) {
-        /* TODO: Clear screen */
         menu_print(menu_items, items);
-        /* TODO: Usage of scanf */
         scanf("%d", &option);
         if (option < items) {
             running = menu_items[option].callback(menu_items[option].arg);
