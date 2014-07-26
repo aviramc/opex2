@@ -5,18 +5,41 @@
 #include "rb_tree.h"
 #include "box_factory.h"
 
-/* create_key - key creation function for the trees. The key would be the same, but the comparison
+/* box_factory_insert_tree_by_side, box_factory_insert_tree_by_height - insertion functions for the
+   two main trees.
+ */
+static bool box_factory_insert_tree_by_side(box_factory_t *factory, unsigned int side, unsigned int height);
+static bool box_factory_insert_tree_by_height(box_factory_t *factory, unsigned int side, unsigned int height);
+
+/* box_factory_remove_tree_by_side, box_factory_remove_tree_by_height - removal functions for the
+   two main trees.
+ */
+static bool box_factory_remove_tree_by_side(box_factory_t *factory, unsigned int side, unsigned int height);
+static bool box_factory_remove_tree_by_height(box_factory_t *factory, unsigned int side, unsigned int height);
+
+/* create_box_key - key creation function for the trees. The key would be the same, but the comparison
    function would be different. Returns NULL on an allocation failure.
  */
-static box_key_t* create_key(unsigned int side, unsigned int height);
+static box_key_t* create_box_key(unsigned int side, unsigned int height);
 
-/* compare_keys_vsh, compare_keys_vhs - key comparison functions for the trees.
+/* create_main_tree_node - creates a node in a main tree - tree_by_side or tree_by_height.
+   Returns NULL on an allocation failure.
  */
-static int compare_keys_vsh(void *a, void *b);
-static int compare_keys_vhs(void *a, void *b);
+static box_main_tree_node_t* create_main_tree_node(unsigned int side, unsigned int height, rb_tree_key_cmp_t key_cmp);
 
-/* Get the volume of a given box size */
-static unsigned int get_volume(box_key_t *key);
+/* free_main_tree_node - frees an allocated main tree node, assuming that its subtree is empty */
+static void free_main_tree_node(box_main_tree_node_t *node);
+
+/* compare_nodes_by_side, compare_nodes_by_height - node comparison functions for the main trees
+   of the box factory */
+static int compare_nodes_by_side(void *a, void *b);    /* For factory->tree_by_side */
+static int compare_nodes_by_height(void *a, void *b);  /* For factory->tree_by_height */
+
+/* compare_keys_side, compare_keys_height - key comparison functions for the subtrees of each node
+   in the main trees.
+ */
+static int compare_keys_side(void *a, void *b);    /* For nodes in factory->tree_by_height */
+static int compare_keys_height(void *a, void *b);  /* For nodes in factory->tree_by_side */
 
 box_factory_t* box_factory_create()
 {
@@ -28,58 +51,33 @@ box_factory_t* box_factory_create()
         return NULL;
     }
 
-    rb_tree = rb_tree_create((rb_tree_key_cmp_t) compare_keys_vsh);
+    rb_tree = rb_tree_create((rb_tree_key_cmp_t) compare_nodes_by_side);
     if (NULL == rb_tree) {
         free(factory);
         return NULL;
     }
-    factory->tree_by_vsh = rb_tree;
+    factory->tree_by_side = rb_tree;
 
-    rb_tree = rb_tree_create((rb_tree_key_cmp_t) compare_keys_vhs);
+    rb_tree = rb_tree_create((rb_tree_key_cmp_t) compare_nodes_by_height);
     if (NULL == rb_tree) {
-        free(factory->tree_by_vsh);
+        free(factory->tree_by_side);
         free(factory);
         return NULL;
     }
-    factory->tree_by_vhs = rb_tree;
+    factory->tree_by_height = rb_tree;
 
     return factory;
 }
 
 bool box_factory_insert(box_factory_t *factory, unsigned int side, unsigned int height)
 {
-    box_key_t **deleted = NULL;
-    box_key_t *key = NULL;
-    bool exists_in_vsh = false;
-    bool exists_in_vhs = false;
-
-    /* First try to create the two keys, so that if allocation errors occur, no tree would
-       be changed */
-    key = create_key(side, height);
-    if (NULL == key) {
+    if (false == box_factory_insert_tree_by_side(factory, side, height)) {
         return false;
     }
 
-    if (false == rb_tree_insert(factory->tree_by_vsh, key, &exists_in_vsh)) {
-        free(key);
+    if (false == box_factory_insert_tree_by_height(factory, side, height)) {
+        assert(box_factory_remove_tree_by_side(factory, side, height));
         return false;
-    }
-
-    if (false == rb_tree_insert(factory->tree_by_vhs, key, &exists_in_vhs)) {
-        /* Remove the key from the vsh tree. Note that the key must be there, thus the assert */
-        assert(true == rb_tree_remove(factory->tree_by_vsh, key, (void **)&deleted));
-        /* If a key has been deleted, it must be the one we've just inserted. */
-        assert((NULL == deleted) || (*deleted == key));
-        free(key);
-        return false;
-    }
-
-    /* Verify that the two trees contain the same data */
-    assert(exists_in_vsh == exists_in_vhs);
-
-    /* No need to hold the key if it is not stored in any of the trees */
-    if (exists_in_vsh) {
-        free(key);
     }
 
     return true;
@@ -87,71 +85,22 @@ bool box_factory_insert(box_factory_t *factory, unsigned int side, unsigned int 
 
 bool box_factory_remove(box_factory_t *factory, unsigned int side, unsigned int height)
 {
-    box_key_t *key = NULL;
-    box_key_t *deleted_in_vsh = NULL;
-    box_key_t *deleted_in_vhs = NULL;
-    bool result = false;
-
-    key = create_key(side, height);
-    if (NULL == key) {
+    if (false == box_factory_remove_tree_by_side(factory, side, height)) {
         return false;
     }
 
-    result = rb_tree_remove(factory->tree_by_vsh, key, (void **)&deleted_in_vsh);
-    /* See if the key exists in the tree(s) */
-    if (result == false) {
-        /* Note that the two trees contain the same data, so no need to search in the other tree */
-        free(key);
-        return false;
-    }
-
-    result = rb_tree_remove(factory->tree_by_vhs, key, (void **)&deleted_in_vhs);
-    /* The key existed already, so it must exist now... */
-    assert(result);
-    /* We use the same memory of keys for both trees */
-    assert(deleted_in_vsh == deleted_in_vhs);
-
-    if (deleted_in_vsh) {
-        free(deleted_in_vsh);
-    }
-
-    free(key);
+    /* If we were able to remove from the tree by side, we must be able to remove
+       from the tree by height, because the key exists.
+     */
+    assert(box_factory_remove_tree_by_height(factory, side, height));
 
     return true;
 }
 
+/* TODO: Implement! */
 box_key_t * box_factory_get_box(box_factory_t *factory, unsigned int side, unsigned int height)
 {
-    box_key_t *key_by_side = NULL;
-    box_key_t *key_by_height = NULL;
-    box_key_t *key = NULL;
-
-    key = create_key(side, height);
-    if (NULL == key) {
-        return NULL;
-    }
-
-    key_by_side = rb_tree_search_smallest(factory->tree_by_vsh, key);
-    key_by_height = rb_tree_search_smallest(factory->tree_by_vhs, key);
-
-    /* If the keys found are equal, there are three options:
-         1. There's only one box size that matches.
-         2. There's no box size size that matches.
-         3. The exact box size was found.
-     */
-    if (key_by_side == key_by_height) {
-        free(key);
-        return key_by_side;
-    }
-
-    /* If the keys found are different, return the one with the smaller volume. */
-    if (get_volume(key_by_side) < get_volume(key_by_height)) {
-        free(key);
-        return key_by_side;
-    }
-
-    free(key);
-    return key_by_height;
+    return NULL;
 }
 
 /* TODO: Implement! */
@@ -160,10 +109,260 @@ bool box_factory_check_box(box_factory_t *factory, unsigned int side, unsigned i
     return true;
 }
 
-static box_key_t* create_key(unsigned int side, unsigned int height)
+static bool box_factory_insert_tree_by_side(box_factory_t *factory, unsigned int side, unsigned int height)
+{
+    box_main_tree_node_t *new_node = NULL;
+    box_main_tree_node_t *side_tree_node = NULL;
+    box_key_t *new_key = NULL;
+    bool exists_in_side_tree = false;
+    bool exists_in_subtree = false;
+
+    /* When trying to insert a new node to this tree, one of the following will cases occur:
+         1. There's no box of the same size, meaning the side would not be found in the tree by side.
+         2. There's a box with the same side, but not with the same height.
+         3. There's a box with the same side and with the same height.
+     */
+    new_node = create_main_tree_node(side, height, compare_keys_height);
+    if (NULL == new_node) {
+        return false;
+    }
+
+    new_key = create_box_key(side, height);
+    if (NULL == new_key) {
+        return false;
+    }
+
+    /* First, search in the main tree (tree by side) */
+    side_tree_node = rb_tree_search(factory->tree_by_side, new_node);
+
+    /* Case 1 - there's no box of the same size */
+    if (NULL == side_tree_node) {
+        /* Insert to the tree by side - this must be a new key in the tree. */
+        if (false == rb_tree_insert(factory->tree_by_side, new_node, &exists_in_side_tree)) {
+            free(new_node);
+            free(new_key);
+            return false;
+        }
+        assert(exists_in_side_tree == false);
+
+        /* Insert to the subtree - this must be a new key in the tree. */
+        if (false == rb_tree_insert(new_node->subtree, new_key, &exists_in_subtree)) {
+            rb_tree_remove(factory->tree_by_side, new_node, (void **) &side_tree_node);
+            assert(side_tree_node == new_node);
+            free_main_tree_node(new_node);
+            free(new_key);
+            return false;
+        }
+        assert(exists_in_subtree == false);
+        return true;
+    }
+
+    /* There's a node with the same side */
+    free_main_tree_node(new_node);
+
+    /* Now rb_tree_insert should take care of cases 2 & 3. */
+    if (false == rb_tree_insert(side_tree_node->subtree, new_key, &exists_in_subtree)) {
+        free(new_key);
+        return false;
+    }
+
+    /* This is case 3, in which we can free the new key that we've created */
+    if (exists_in_subtree) {
+        free(new_key);
+    }
+
+    return true;
+}
+
+static bool box_factory_insert_tree_by_height(box_factory_t *factory, unsigned int side, unsigned int height)
+{
+    box_main_tree_node_t *new_node = NULL;
+    box_main_tree_node_t *height_tree_node = NULL;
+    box_key_t *new_key = NULL;
+    bool exists_in_height_tree = false;
+    bool exists_in_subtree = false;
+
+    /* When trying to insert a new node to this tree, one of the following will cases occur:
+         1. There's no box of the same size, meaning the height would not be found in the tree by height.
+         2. There's a box with the same height, but not with the same side.
+         3. There's a box with the same height and with the same side.
+     */
+    new_node = create_main_tree_node(side, height, compare_keys_side);
+    if (NULL == new_node) {
+        return false;
+    }
+
+    /* First, search in the main tree (tree by height) */
+    height_tree_node = rb_tree_search(factory->tree_by_height, new_node);
+
+    new_key = create_box_key(side, height);
+    if (NULL == new_key) {
+        return false;
+    }
+
+    /* Case 1 - there's no box of the same size */
+    if (NULL == height_tree_node) {
+        /* Insert to the tree by side - this must be a new key in the tree. */
+        if (false == rb_tree_insert(factory->tree_by_height, new_node, &exists_in_height_tree)) {
+            free(new_node);
+            free(new_key);
+            return false;
+        }
+        assert(exists_in_height_tree == false);
+
+        /* Insert to the subtree - this must be a new key in the tree. */
+        if (false == rb_tree_insert(new_node->subtree, new_key, &exists_in_subtree)) {
+            rb_tree_remove(factory->tree_by_height, new_node, (void **) &height_tree_node);
+            assert(height_tree_node == new_node);
+            free_main_tree_node(new_node);
+            free(new_key);
+            return false;
+        }
+        assert(exists_in_subtree == false);
+        return true;
+    }
+
+    /* There's a node with the same height */
+    free_main_tree_node(new_node);
+
+    /* Now rb_tree_insert should take care of cases 2 & 3. */
+    if (false == rb_tree_insert(height_tree_node->subtree, new_key, &exists_in_subtree)) {
+        free(new_key);
+        return false;
+    }
+
+    /* This is case 3, in which we can free the new key that we've created */
+    if (exists_in_subtree) {
+        free(new_key);
+    }
+
+    return true;
+}
+
+
+static bool box_factory_remove_tree_by_side(box_factory_t *factory, unsigned int side, unsigned int height)
+{
+    box_main_tree_node_t *new_node = NULL;
+    box_main_tree_node_t *side_tree_node = NULL;
+    box_main_tree_node_t *deleted_side_tree_node = NULL;
+    box_key_t *new_key = NULL;
+    box_key_t *subtree_key = NULL;
+
+    /* When trying to remove a node from this tree, the following cases may occur:
+        1. There's no box with that size, which either means:
+            1.1. There's no box with the same side.
+            1.2. There's a box with the same side but not with the same height.
+        2. There's a box with the same size. If there's only one, we should remove the node from the tree.
+     */
+    new_node = create_main_tree_node(side, height, compare_keys_height);
+    if (NULL == new_node) {
+        return false;
+    }
+    
+    /* First, search in the main tree (tree by side) */
+    side_tree_node = rb_tree_search(factory->tree_by_side, new_node);
+
+    if (NULL == side_tree_node) {
+        /* Case 1.1 */
+        free_main_tree_node(new_node);
+        return false;
+    }
+    free_main_tree_node(new_node);
+
+    new_key = create_box_key(side, height);
+    if (NULL == new_key) {
+        return false;
+    }
+
+    subtree_key = rb_tree_search(side_tree_node->subtree, new_key);
+    if (NULL == subtree_key) {
+        /* Case 1.2 */
+        free(new_key);
+        return false;
+    }
+
+    /* Case 2 */
+    /* Remove the node from the subtree */
+    assert(rb_tree_remove(side_tree_node->subtree, new_key, (void **) &subtree_key));
+    if (subtree_key) {
+        /* There's no more of the same side and height in the tree, free the key */
+        free(subtree_key);
+    }
+
+    /* The subtree has been emptied, so the node should be completely removed */
+    if (side_tree_node->subtree->count == 0) {
+        assert(rb_tree_remove(factory->tree_by_side, side_tree_node, (void **) &deleted_side_tree_node));
+        /* This must be the same node. */
+        assert(deleted_side_tree_node == side_tree_node);
+        free_main_tree_node(deleted_side_tree_node);
+    }
+    free(new_key);
+    return true;
+}
+
+static bool box_factory_remove_tree_by_height(box_factory_t *factory, unsigned int side, unsigned int height)
+{
+    box_main_tree_node_t *new_node = NULL;
+    box_main_tree_node_t *height_tree_node = NULL;
+    box_main_tree_node_t *deleted_height_tree_node = NULL;
+    box_key_t *new_key = NULL;
+    box_key_t *subtree_key = NULL;
+
+    /* When trying to remove a node from this tree, the following cases may occur:
+        1. There's no box with that size, which either means:
+            1.1. There's no box with the same height.
+            1.2. There's a box with the same height but not with the same side.
+        2. There's a box with the same size. If there's only one, we should remove the node from the tree.
+     */
+    new_node = create_main_tree_node(side, height, compare_keys_side);
+    if (NULL == new_node) {
+        return false;
+    }
+    
+    /* First, search in the main tree (tree by side) */
+    height_tree_node = rb_tree_search(factory->tree_by_height, new_node);
+
+    if (NULL == height_tree_node) {
+        /* Case 1.1 */
+        free_main_tree_node(new_node);
+        return false;
+    }
+    free_main_tree_node(new_node);
+
+    new_key = create_box_key(side, height);
+    if (NULL == new_key) {
+        return false;
+    }
+
+    subtree_key = rb_tree_search(height_tree_node->subtree, new_key);
+    if (NULL == subtree_key) {
+        /* Case 1.2 */
+        free(new_key);
+        return false;
+    }
+
+    /* Case 2 */
+    /* Remove the node from the subtree */
+    assert(rb_tree_remove(height_tree_node->subtree, new_key, (void **) &subtree_key));
+    if (subtree_key) {
+        /* There's no more of the same height and side in the tree, free the key */
+        free(subtree_key);
+    }
+
+    /* The subtree has been emptied, so the node should be completely removed */
+    if (height_tree_node->subtree->count == 0) {
+        assert(rb_tree_remove(factory->tree_by_height, height_tree_node, (void **) &deleted_height_tree_node));
+        /* This must be the same node. */
+        assert(deleted_height_tree_node == height_tree_node);
+        free_main_tree_node(deleted_height_tree_node);
+    }
+    free(new_key);
+    return true;
+}
+
+static box_key_t* create_box_key(unsigned int side, unsigned int height)
 {
     box_key_t *key = calloc(sizeof(box_key_t), 1);
-
     if (NULL == key) {
         return NULL;
     }
@@ -174,23 +373,77 @@ static box_key_t* create_key(unsigned int side, unsigned int height)
     return key;
 }
 
-static int compare_keys_vsh(void *a, void *b)
+static box_main_tree_node_t* create_main_tree_node(unsigned int side, unsigned int height, rb_tree_key_cmp_t key_cmp)
 {
-    box_key_t *key_a = a;
-    box_key_t *key_b = b;
-    unsigned int volume_a = get_volume(key_a);
-    unsigned int volume_b = get_volume(key_b);
+    box_main_tree_node_t *node = calloc(sizeof(box_main_tree_node_t), 1);
+    rb_tree_t *subtree = NULL;
 
-    /* Compare volumes */
-    if (volume_a < volume_b) {
+    if (NULL == node) {
+        return NULL;
+    }
+
+    node->key.side = side;
+    node->key.height = height;
+
+    subtree = rb_tree_create((rb_tree_key_cmp_t) compare_keys_height);
+    if (NULL == subtree) {
+        free(node);
+        return NULL;
+    }
+    node->subtree = subtree;
+
+    return node;
+}
+
+static void free_main_tree_node(box_main_tree_node_t *node)
+{
+    /* XXX: We assume that the subtree is empty */
+    free(node->subtree);
+    free(node);
+}
+
+static int compare_nodes_by_side(void *a, void *b)
+{
+    /* Compare nodes of the tree_by_side */
+    box_main_tree_node_t *node_a = a;
+    box_main_tree_node_t *node_b = b;
+
+    if (node_a->key.side < node_b->key.side) {
         return -1;
     }
 
-    if (volume_a > volume_b) {
+    if (node_a->key.side > node_b->key.side) {
         return 1;
     }
 
-    /* volume_a == volume_b, so compare sides */
+    /* The sides of the two nodes are equal */
+    return 0;
+}
+
+static int compare_nodes_by_height(void *a, void *b)
+{
+    /* Compare nodes of the tree_by_height */
+    box_main_tree_node_t *node_a = a;
+    box_main_tree_node_t *node_b = b;
+
+    if (node_a->key.height < node_b->key.height) {
+        return -1;
+    }
+
+    if (node_a->key.height > node_b->key.height) {
+        return 1;
+    }
+
+    /* The heights of the two nodes are equal */
+    return 0;
+}
+
+static int compare_keys_side(void *a, void *b)
+{
+    /* Compare nodes of the subtree of a node in tree_by_height */
+    box_key_t *key_a = a;
+    box_key_t *key_b = b;
+
     if (key_a->side < key_b->side) {
         return -1;
     }
@@ -199,36 +452,16 @@ static int compare_keys_vsh(void *a, void *b)
         return 1;
     }
 
-    /* sides are equal, so compare heights */
-    if (key_a->height < key_b->height) {
-        return -1;
-    }
-
-    if (key_a->height > key_b->height) {
-        return 1;
-    }
-
-    /* All is equal */
+    /* The sides of the two keys are equal */
     return 0;
 }
 
-static int compare_keys_vhs(void *a, void *b)
+static int compare_keys_height(void *a, void *b)
 {
+    /* Compare nodes of the subtree of a node in tree_by_side */
     box_key_t *key_a = a;
     box_key_t *key_b = b;
-    unsigned int volume_a = get_volume(key_a);
-    unsigned int volume_b = get_volume(key_b);
 
-    /* Compare volumes */
-    if (volume_a < volume_b) {
-        return -1;
-    }
-
-    if (volume_a > volume_b) {
-        return 1;
-    }
-
-    /* volume_a == volume_b, so compare heights */
     if (key_a->height < key_b->height) {
         return -1;
     }
@@ -237,21 +470,6 @@ static int compare_keys_vhs(void *a, void *b)
         return 1;
     }
 
-    /* heights are equal, so compare sides */
-    if (key_a->side < key_b->side) {
-        return -1;
-    }
-
-    if (key_a->side > key_b->side) {
-        return 1;
-    }
-
-    /* All is equal */
+    /* The heights of the two keys are equal */
     return 0;
-}
-
-/* Get the volume of a given box size */
-static unsigned int get_volume(box_key_t *key)
-{
-    return key->side * key->side * key->height;
 }

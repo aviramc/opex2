@@ -15,9 +15,14 @@ typedef struct box_key_s {
     unsigned int height;
 } box_key_t;
 
+typedef struct box_main_tree_node_s {
+    box_key_t key;
+    rb_tree_t *subtree;
+} box_main_tree_node_t;
+
 typedef struct box_factory_s {
-    rb_tree_t *tree_by_vsh; /* Tree by the key Volume-Side-Height */
-    rb_tree_t *tree_by_vhs; /* Tree by the key Volume-Height-Side */
+    rb_tree_t *tree_by_side;   /* Tree by the key side */
+    rb_tree_t *tree_by_height; /* Tree by the key height */
 } box_factory_t;
 
 /* box_factory_create - create an empty box factory.
