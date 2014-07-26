@@ -79,8 +79,8 @@ void rb_tree_in_order(rb_tree_t *tree, rb_tree_node_t *node, void (*callback)(rb
 /* rb_tree_find_max - returns the max node in the tree. */
 rb_tree_node_t* rb_tree_find_max(rb_tree_t *tree);
 
-/* rb_tree_search - an exact key search in the tree. The node containing an equal key is returned,
+/* rb_tree_search - an exact key search in the tree. An equal key in the tree is returned
    or NULL if not found. */
-rb_tree_node_t* rb_tree_search(rb_tree_t *tree, void *key);
+void* rb_tree_search(rb_tree_t *tree, void *key);
 
 #endif /* __RB_TREE_H__ */

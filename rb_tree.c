@@ -179,9 +179,15 @@ void rb_tree_in_order(rb_tree_t *tree, rb_tree_node_t *node, void (*callback)(rb
     }
 }
 
-rb_tree_node_t* rb_tree_search(rb_tree_t *tree, void *key)
+void* rb_tree_search(rb_tree_t *tree, void *key)
 {
-    return rb_tree_search_from(tree, tree->head, key);
+    rb_tree_node_t *found_node = rb_tree_search_from(tree, tree->head, key);
+
+    if (NULL == found_node) {
+        return NULL;
+    }
+
+    return found_node->key;
 }
 
 static rb_tree_node_t* rb_tree_search_smallest_node(rb_tree_t *tree, rb_tree_node_t *node, void *key)
