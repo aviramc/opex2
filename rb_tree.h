@@ -34,6 +34,8 @@ struct rb_tree_node_s {
 
 typedef struct rb_tree_s {
     rb_tree_node_t *head;
+    rb_tree_node_t *max;
+    unsigned int count;
     rb_tree_node_t nil;
     rb_tree_key_cmp_t key_cmp;
 } rb_tree_t;
@@ -73,5 +75,12 @@ void * rb_tree_search_smallest(rb_tree_t *tree, void *key);
    In order to scan the entire tree, pass tree->head in node.
  */
 void rb_tree_in_order(rb_tree_t *tree, rb_tree_node_t *node, void (*callback)(rb_tree_t *tree, rb_tree_node_t *node));
+
+/* rb_tree_find_max - returns the max node in the tree. */
+rb_tree_node_t* rb_tree_find_max(rb_tree_t *tree);
+
+/* rb_tree_search - an exact key search in the tree. The node containing an equal key is returned,
+   or NULL if not found. */
+rb_tree_node_t* rb_tree_search(rb_tree_t *tree, void *key);
 
 #endif /* __RB_TREE_H__ */

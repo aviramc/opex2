@@ -36,9 +36,9 @@ static void rb_tree_rotate_right(rb_tree_t *tree, rb_tree_node_t *x);
 /* rb_tree_successor - get the successor in the tree for node. Based on the book's implementation. */
 static rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node);
 
-/* rb_tree_search - an exact key search in the tree. The node containing an equal key is returned,
-   or NULL if not found. */
-static rb_tree_node_t* rb_tree_search(rb_tree_t *tree, rb_tree_node_t *node, void *key);
+/* rb_tree_search_from - an exact key search in the tree, starting from the given node.
+   The node containing an equal key is returned, or NULL if not found. */
+static rb_tree_node_t* rb_tree_search_from(rb_tree_t *tree, rb_tree_node_t *node, void *key);
 
 rb_tree_t *rb_tree_create(rb_tree_key_cmp_t key_cmp)
 {
@@ -60,8 +60,12 @@ rb_tree_t *rb_tree_create(rb_tree_key_cmp_t key_cmp)
     rb_tree->head = &(rb_tree->nil);
     rb_tree->key_cmp = key_cmp;
 
+    rb_tree->max = &(rb_tree->nil);
+    rb_tree->count = 0;
+
     return rb_tree;
 }
+
 
 bool rb_tree_insert(rb_tree_t *tree, void *key, bool *exists)
 {
@@ -72,7 +76,7 @@ bool rb_tree_insert(rb_tree_t *tree, void *key, bool *exists)
     *exists = false;
 
     /* First, search for the key. If it is present, all we need to do is to increase its count. */
-    x = rb_tree_search(tree, tree->head, key);
+    x = rb_tree_search_from(tree, tree->head, key);
     if (NULL != x) {
         *exists = true;
         x->count += 1;
@@ -116,12 +120,16 @@ bool rb_tree_insert(rb_tree_t *tree, void *key, bool *exists)
     z->color = RED;
     rb_tree_insert_fixup(tree, z);
 
+    /* In this case, a unique key is add to the tree */
+    tree->count++;
+    tree->max = rb_tree_find_max(tree);
+
     return true;
 }
 
 bool rb_tree_remove(rb_tree_t *tree, void *key, void **deleted)
 {
-    rb_tree_node_t *node = rb_tree_search(tree, tree->head, key);
+    rb_tree_node_t *node = rb_tree_search_from(tree, tree->head, key);
 
     *deleted = NULL;
 
@@ -132,9 +140,13 @@ bool rb_tree_remove(rb_tree_t *tree, void *key, void **deleted)
     node->count -= 1;
 
     if (node->count == 0) {
+        /* In this case, a unique key is removed from the tree */
+        tree->count--;
         *deleted = node->key;
         rb_tree_delete(tree, node);
     }
+
+    tree->max = rb_tree_find_max(tree);
 
     return true;
 }
@@ -165,6 +177,11 @@ void rb_tree_in_order(rb_tree_t *tree, rb_tree_node_t *node, void (*callback)(rb
     if (!IS_NIL(tree, node->right)) {
         rb_tree_in_order(tree, node->right, callback);
     }
+}
+
+rb_tree_node_t* rb_tree_search(rb_tree_t *tree, void *key)
+{
+    return rb_tree_search_from(tree, tree->head, key);
 }
 
 static rb_tree_node_t* rb_tree_search_smallest_node(rb_tree_t *tree, rb_tree_node_t *node, void *key)
@@ -417,6 +434,20 @@ static void rb_tree_rotate_right(rb_tree_t *tree, rb_tree_node_t *x)
     x->parent = y;
 }
 
+rb_tree_node_t* rb_tree_find_max(rb_tree_t *tree)
+{
+    rb_tree_node_t *node = tree->head;
+
+    if (IS_NIL(tree, node)){
+        return node;
+    }
+
+    while (!IS_NIL(tree, node->right)){
+        node = node->right;
+    }
+    return node;
+}
+
 static rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node)
 {
     rb_tree_node_t *y = NULL;
@@ -442,10 +473,10 @@ static rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node)
     }
 }
 
-static rb_tree_node_t* rb_tree_search(rb_tree_t *tree, rb_tree_node_t *node, void *key)
+static rb_tree_node_t* rb_tree_search_from(rb_tree_t *tree, rb_tree_node_t *node, void *key)
 {
     int compare = 0;
-    
+
     if (IS_NIL(tree, node)) {
         return NULL;
     }
@@ -457,9 +488,9 @@ static rb_tree_node_t* rb_tree_search(rb_tree_t *tree, rb_tree_node_t *node, voi
     }
 
     if (compare < 0) {
-        return rb_tree_search(tree, node->left, key);
+        return rb_tree_search_from(tree, node->left, key);
     } else {
         /* key must be greater than node's key */
-        return rb_tree_search(tree, node->right, key);
+        return rb_tree_search_from(tree, node->right, key);
     }
 }
