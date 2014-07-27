@@ -41,10 +41,10 @@ bool box_factory_insert(box_factory_t *factory, unsigned int side, unsigned int 
 bool box_factory_remove(box_factory_t *factory, unsigned int side, unsigned int height);
 
 /* box_factory_get_box - the exercise's GetBox.
-   Returns true/false is a box is found/not found. In addition, found_side and found_height would
-   contain the side and height of the matching smallest box.
+   Returns true/false is a box is found/not found. In addition, found_side_square and found_height would
+   contain the side^2 and height of the matching smallest box.
  */
-bool box_factory_get_box(box_factory_t *factory, unsigned int side, unsigned int height, unsigned int *found_side, unsigned int *found_height);
+bool box_factory_get_box(box_factory_t *factory, unsigned int side, unsigned int height, unsigned int *found_side_square, unsigned int *found_height);
 
 /* box_factory_check_box - the exercise's CheckBox.
    Returns true if a box exists, false otherwise.

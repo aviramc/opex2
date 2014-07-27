@@ -119,16 +119,16 @@ bool box_factory_remove(box_factory_t *factory, unsigned int side, unsigned int 
 }
 
 
-bool box_factory_get_box(box_factory_t *factory, unsigned int side, unsigned int height, unsigned int *found_side, unsigned int *found_height)
+bool box_factory_get_box(box_factory_t *factory, unsigned int side, unsigned int height, unsigned int *found_side_square, unsigned int *found_height)
 {
     if (factory->tree_by_height->count == 0) {
         return false;
     }
 
     if (factory->tree_by_height->count > factory->tree_by_side->count){
-        return box_factory_get_by_input(factory->tree_by_side, side * side, height, found_side, found_height);
+        return box_factory_get_by_input(factory->tree_by_side, side * side, height, found_side_square, found_height);
     }
-    return box_factory_get_by_input(factory->tree_by_height, height, side * side, found_height, found_side);
+    return box_factory_get_by_input(factory->tree_by_height, height, side * side, found_height, found_side_square);
 }
 
 static bool box_factory_get_by_input(rb_tree_t *tree,
