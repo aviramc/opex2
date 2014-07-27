@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "box_factory.h"
 #include "box_menu.h"
@@ -52,17 +53,17 @@ bool box_menu_get(void *box_factory_ptr)
     box_factory_t *factory = box_factory_ptr;
     unsigned int side = 0;
     unsigned int height = 0;
-    unsigned int found_side = 0;
+    unsigned int found_side_square = 0;
     unsigned int found_height = 0;
-    box_key_t *key = NULL;
+    bool found = false;
 
     _get_dimensions(&side, &height);
 
-    key = box_factory_get_box(factory, side, height, &found_side, &found_height);
-    if (NULL == key) {
-        printf("Error: No matching box found\n");
+    found = box_factory_get_box(factory, side, height, &found_side_square, &found_height);
+    if (found) {
+        printf("Found a box with side=%d and height=%d\n", (unsigned int) sqrt((double) found_side_square), found_height);
     } else {
-        printf("Found a box with side=%d and height=%d\n", found_side, found_height);
+        printf("Error: No matching box found\n");
     }
 
     return true;
