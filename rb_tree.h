@@ -69,8 +69,7 @@ bool rb_tree_remove(rb_tree_t *tree, void *key, void **deleted);
    If there's no key larger than or equal to the key, NULL is returned.
    If an allocation error occurs, NULL is returned.
  */
-void * rb_tree_search_smallest(rb_tree_t *tree, void *key);
-
+rb_tree_node_t* rb_tree_search_smallest(rb_tree_t *tree, void *key);
 /* rb_tree_in_order - scan the tree in order and call callback for each node, starting from the given node.
    In order to scan the entire tree, pass tree->head in node.
  */
@@ -83,4 +82,6 @@ rb_tree_node_t* rb_tree_find_max(rb_tree_t *tree);
    or NULL if not found. */
 void* rb_tree_search(rb_tree_t *tree, void *key);
 
+/* rb_tree_successor - get the successor in the tree for node. Based on the book's implementation. */
+rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node);
 #endif /* __RB_TREE_H__ */

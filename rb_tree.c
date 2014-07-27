@@ -33,9 +33,6 @@ static void rb_tree_insert_fixup(rb_tree_t *tree, rb_tree_node_t *z);
 static void rb_tree_rotate_left(rb_tree_t *tree, rb_tree_node_t *x);
 static void rb_tree_rotate_right(rb_tree_t *tree, rb_tree_node_t *x);
 
-/* rb_tree_successor - get the successor in the tree for node. Based on the book's implementation. */
-static rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node);
-
 /* rb_tree_search_from - an exact key search in the tree, starting from the given node.
    The node containing an equal key is returned, or NULL if not found. */
 static rb_tree_node_t* rb_tree_search_from(rb_tree_t *tree, rb_tree_node_t *node, void *key);
@@ -151,7 +148,7 @@ bool rb_tree_remove(rb_tree_t *tree, void *key, void **deleted)
     return true;
 }
 
-void * rb_tree_search_smallest(rb_tree_t *tree, void *key)
+rb_tree_node_t* rb_tree_search_smallest(rb_tree_t *tree, void *key)
 {
     rb_tree_node_t *node = rb_tree_search_smallest_node(tree, tree->head, key);
 
@@ -159,7 +156,7 @@ void * rb_tree_search_smallest(rb_tree_t *tree, void *key)
         return NULL;
     }
 
-    return node->key;
+    return node;
 }
 
 void rb_tree_in_order(rb_tree_t *tree, rb_tree_node_t *node, void (*callback)(rb_tree_t *tree, rb_tree_node_t *node))
@@ -454,7 +451,7 @@ rb_tree_node_t* rb_tree_find_max(rb_tree_t *tree)
     return node;
 }
 
-static rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node)
+rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node)
 {
     rb_tree_node_t *y = NULL;
 
