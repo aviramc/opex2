@@ -20,26 +20,32 @@ static bool box_factory_remove_tree_by_height(box_factory_t *factory, unsigned i
 /* create_box_key - key creation function for the trees. The key would be the same, but the comparison
    function would be different. Returns NULL on an allocation failure.
  */
-static box_key_t* create_box_key(unsigned int side, unsigned int height);
+static box_key_t* create_box_key(unsigned int subval);
 
 /* create_main_tree_node - creates a node in a main tree - tree_by_side or tree_by_height.
    Returns NULL on an allocation failure.
  */
-static box_main_tree_node_t* create_main_tree_node(unsigned int side, unsigned int height, rb_tree_key_cmp_t key_cmp);
+static box_main_tree_node_t* create_main_tree_node(unsigned int main_val, rb_tree_key_cmp_t key_cmp);
 
 /* free_main_tree_node - frees an allocated main tree node, assuming that its subtree is empty */
 static void free_main_tree_node(box_main_tree_node_t *node);
 
 /* compare_nodes_by_side, compare_nodes_by_height - node comparison functions for the main trees
    of the box factory */
-static int compare_nodes_by_side(void *a, void *b);    /* For factory->tree_by_side */
-static int compare_nodes_by_height(void *a, void *b);  /* For factory->tree_by_height */
+static int compare_nodes(void *a, void *b);
 
 /* compare_keys_side, compare_keys_height - key comparison functions for the subtrees of each node
    in the main trees.
  */
-static int compare_keys_side(void *a, void *b);    /* For nodes in factory->tree_by_height */
-static int compare_keys_height(void *a, void *b);  /* For nodes in factory->tree_by_side */
+static int compare_keys(void *a, void *b);
+
+bool box_factory_check_by_input(rb_tree_t *tree, unsigned int main_val, unsigned int sub_val);
+box_key_t* box_factory_get_by_input(rb_tree_t *tree,
+                                    unsigned int main_val,
+                                    unsigned int sub_val,
+                                    unsigned int *found_main_val,
+                                    unsigned int *found_sub_val);
+
 
 box_factory_t* box_factory_create()
 {
@@ -51,14 +57,14 @@ box_factory_t* box_factory_create()
         return NULL;
     }
 
-    rb_tree = rb_tree_create((rb_tree_key_cmp_t) compare_nodes_by_side);
+    rb_tree = rb_tree_create((rb_tree_key_cmp_t) compare_nodes);
     if (NULL == rb_tree) {
         free(factory);
         return NULL;
     }
     factory->tree_by_side = rb_tree;
 
-    rb_tree = rb_tree_create((rb_tree_key_cmp_t) compare_nodes_by_height);
+    rb_tree = rb_tree_create((rb_tree_key_cmp_t) compare_nodes);
     if (NULL == rb_tree) {
         free(factory->tree_by_side);
         free(factory);
@@ -122,12 +128,12 @@ static bool box_factory_insert_tree_by_side(box_factory_t *factory, unsigned int
          2. There's a box with the same side, but not with the same height.
          3. There's a box with the same side and with the same height.
      */
-    new_node = create_main_tree_node(side, height, compare_keys_height);
+    new_node = create_main_tree_node(side * side, compare_keys);
     if (NULL == new_node) {
         return false;
     }
 
-    new_key = create_box_key(side, height);
+    new_key = create_box_key(height);
     if (NULL == new_key) {
         return false;
     }
@@ -187,7 +193,7 @@ static bool box_factory_insert_tree_by_height(box_factory_t *factory, unsigned i
          2. There's a box with the same height, but not with the same side.
          3. There's a box with the same height and with the same side.
      */
-    new_node = create_main_tree_node(side, height, compare_keys_side);
+    new_node = create_main_tree_node(height, compare_keys);
     if (NULL == new_node) {
         return false;
     }
@@ -195,7 +201,7 @@ static bool box_factory_insert_tree_by_height(box_factory_t *factory, unsigned i
     /* First, search in the main tree (tree by height) */
     height_tree_node = rb_tree_search(factory->tree_by_height, new_node);
 
-    new_key = create_box_key(side, height);
+    new_key = create_box_key(side * side);
     if (NULL == new_key) {
         return false;
     }
@@ -254,11 +260,11 @@ static bool box_factory_remove_tree_by_side(box_factory_t *factory, unsigned int
             1.2. There's a box with the same side but not with the same height.
         2. There's a box with the same size. If there's only one, we should remove the node from the tree.
      */
-    new_node = create_main_tree_node(side, height, compare_keys_height);
+    new_node = create_main_tree_node(side * side, compare_keys);
     if (NULL == new_node) {
         return false;
     }
-    
+
     /* First, search in the main tree (tree by side) */
     side_tree_node = rb_tree_search(factory->tree_by_side, new_node);
 
@@ -269,7 +275,7 @@ static bool box_factory_remove_tree_by_side(box_factory_t *factory, unsigned int
     }
     free_main_tree_node(new_node);
 
-    new_key = create_box_key(side, height);
+    new_key = create_box_key(height);
     if (NULL == new_key) {
         return false;
     }
@@ -314,11 +320,11 @@ static bool box_factory_remove_tree_by_height(box_factory_t *factory, unsigned i
             1.2. There's a box with the same height but not with the same side.
         2. There's a box with the same size. If there's only one, we should remove the node from the tree.
      */
-    new_node = create_main_tree_node(side, height, compare_keys_side);
+    new_node = create_main_tree_node(height, compare_keys);
     if (NULL == new_node) {
         return false;
     }
-    
+
     /* First, search in the main tree (tree by side) */
     height_tree_node = rb_tree_search(factory->tree_by_height, new_node);
 
@@ -329,7 +335,7 @@ static bool box_factory_remove_tree_by_height(box_factory_t *factory, unsigned i
     }
     free_main_tree_node(new_node);
 
-    new_key = create_box_key(side, height);
+    new_key = create_box_key(side * side);
     if (NULL == new_key) {
         return false;
     }
@@ -360,20 +366,19 @@ static bool box_factory_remove_tree_by_height(box_factory_t *factory, unsigned i
     return true;
 }
 
-static box_key_t* create_box_key(unsigned int side, unsigned int height)
+static box_key_t* create_box_key(unsigned int subval)
 {
     box_key_t *key = calloc(sizeof(box_key_t), 1);
     if (NULL == key) {
         return NULL;
     }
 
-    key->side = side;
-    key->height = height;
+    key->val = subval;
 
     return key;
 }
 
-static box_main_tree_node_t* create_main_tree_node(unsigned int side, unsigned int height, rb_tree_key_cmp_t key_cmp)
+static box_main_tree_node_t* create_main_tree_node(unsigned int main_val, rb_tree_key_cmp_t key_cmp)
 {
     box_main_tree_node_t *node = calloc(sizeof(box_main_tree_node_t), 1);
     rb_tree_t *subtree = NULL;
@@ -382,10 +387,9 @@ static box_main_tree_node_t* create_main_tree_node(unsigned int side, unsigned i
         return NULL;
     }
 
-    node->key.side = side;
-    node->key.height = height;
+    node->val = main_val;
 
-    subtree = rb_tree_create((rb_tree_key_cmp_t) compare_keys_height);
+    subtree = rb_tree_create((rb_tree_key_cmp_t) compare_keys);
     if (NULL == subtree) {
         free(node);
         return NULL;
@@ -402,17 +406,17 @@ static void free_main_tree_node(box_main_tree_node_t *node)
     free(node);
 }
 
-static int compare_nodes_by_side(void *a, void *b)
+static int compare_nodes(void *a, void *b)
 {
     /* Compare nodes of the tree_by_side */
     box_main_tree_node_t *node_a = a;
     box_main_tree_node_t *node_b = b;
 
-    if (node_a->key.side < node_b->key.side) {
+    if (node_a->val < node_b->val) {
         return -1;
     }
 
-    if (node_a->key.side > node_b->key.side) {
+    if (node_a->val > node_b->val) {
         return 1;
     }
 
@@ -420,56 +424,20 @@ static int compare_nodes_by_side(void *a, void *b)
     return 0;
 }
 
-static int compare_nodes_by_height(void *a, void *b)
-{
-    /* Compare nodes of the tree_by_height */
-    box_main_tree_node_t *node_a = a;
-    box_main_tree_node_t *node_b = b;
-
-    if (node_a->key.height < node_b->key.height) {
-        return -1;
-    }
-
-    if (node_a->key.height > node_b->key.height) {
-        return 1;
-    }
-
-    /* The heights of the two nodes are equal */
-    return 0;
-}
-
-static int compare_keys_side(void *a, void *b)
+static int compare_keys(void *a, void *b)
 {
     /* Compare nodes of the subtree of a node in tree_by_height */
     box_key_t *key_a = a;
     box_key_t *key_b = b;
 
-    if (key_a->side < key_b->side) {
+    if (key_a->val < key_b->val) {
         return -1;
     }
 
-    if (key_a->side > key_b->side) {
+    if (key_a->val > key_b->val) {
         return 1;
     }
 
     /* The sides of the two keys are equal */
-    return 0;
-}
-
-static int compare_keys_height(void *a, void *b)
-{
-    /* Compare nodes of the subtree of a node in tree_by_side */
-    box_key_t *key_a = a;
-    box_key_t *key_b = b;
-
-    if (key_a->height < key_b->height) {
-        return -1;
-    }
-
-    if (key_a->height > key_b->height) {
-        return 1;
-    }
-
-    /* The heights of the two keys are equal */
     return 0;
 }

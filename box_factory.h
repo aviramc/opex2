@@ -11,12 +11,11 @@
 #define __BOX_FACTORY_H__
 
 typedef struct box_key_s {
-    unsigned int side;
-    unsigned int height;
+    unsigned int val;
 } box_key_t;
 
 typedef struct box_main_tree_node_s {
-    box_key_t key;
+    unsigned int val;
     rb_tree_t *subtree;
 } box_main_tree_node_t;
 
@@ -44,7 +43,7 @@ bool box_factory_remove(box_factory_t *factory, unsigned int side, unsigned int 
 /* box_factory_get_box - the exercise's GetBox.
    Returns NULL if there's no box that fits the given sizes.
  */
-box_key_t * box_factory_get_box(box_factory_t *factory, unsigned int side, unsigned int height);
+box_key_t* box_factory_get_box(box_factory_t *factory, unsigned int side, unsigned int height, unsigned int *found_side, unsigned int *found_height);
 
 /* box_factory_check_box - the exercise's CheckBox.
    Returns true if a box exists, false otherwise.
