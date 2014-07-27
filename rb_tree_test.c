@@ -64,7 +64,7 @@ int main(void)
 
     printf("\nRemoving the head of the tree (which is %d):\n", *(int *)tree->head->key);
     key = tree->head->key;
-    assert(key == rb_tree_search_smallest(tree, key));
+    assert(key == rb_tree_search_smallest(tree, key)->key);
     assert(rb_tree_remove(tree, key, (void **)&deleted));
     assert(deleted);
     print_tree(tree);
@@ -87,12 +87,12 @@ int main(void)
         printf("Removing member %d", keys[i]);
         if (i % 2 == 0) {
             printf(" (removing twice)");
-            assert(&keys[i] == rb_tree_search_smallest(tree, &keys[i]));
+            assert(&keys[i] == rb_tree_search_smallest(tree, &keys[i])->key);
             assert(rb_tree_remove(tree, &keys[i], (void **)&deleted));
             assert(deleted == NULL);
         }
         printf(":\n");
-        assert(&keys[i] == rb_tree_search_smallest(tree, &keys[i]));
+        assert(&keys[i] == rb_tree_search_smallest(tree, &keys[i])->key);
         assert(rb_tree_remove(tree, &keys[i], (void **)&deleted));
         assert(deleted);
         print_tree(tree);
@@ -107,19 +107,19 @@ int main(void)
     printf("Verifying 'search_smallest'...\n");
     /* XXX: The following is hard coded based on the numbers in the test array (generated randomly) */
     temp = 65;
-    assert(73 == *(int *)rb_tree_search_smallest(tree, &temp));
+    assert(73 == *(int *)(rb_tree_search_smallest(tree, &temp)->key));
     temp = 73;
     assert(rb_tree_remove(tree, &temp, (void **)&deleted));
     assert(deleted);
 
     temp = 80;
-    assert(82 == *(int *)rb_tree_search_smallest(tree, &temp));
+    assert(82 == *(int *)(rb_tree_search_smallest(tree, &temp)->key));
     temp = 82;
     assert(rb_tree_remove(tree, &temp, (void **)&deleted));
     assert(deleted);
 
     temp = -30;
-    assert(2 == *(int *)rb_tree_search_smallest(tree, &temp));
+    assert(2 == *(int *)(rb_tree_search_smallest(tree, &temp)->key));
     temp = 2;
     assert(rb_tree_remove(tree, &temp, (void **)&deleted));
     assert(deleted);
