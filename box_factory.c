@@ -39,12 +39,27 @@ static int compare_nodes(void *a, void *b);
  */
 static int compare_keys(void *a, void *b);
 
-bool box_factory_check_by_input(rb_tree_t *tree, unsigned int main_val, unsigned int sub_val);
-box_key_t* box_factory_get_by_input(rb_tree_t *tree,
-                                    unsigned int main_val,
-                                    unsigned int sub_val,
-                                    unsigned int *found_main_val,
-                                    unsigned int *found_sub_val);
+/* The following are convenience functions internally used:
+      get_sub_tree - returns the subtree of a given main tree node.
+      get_sub_tree_max - returns the max value in the sub tree of a main tree node.
+      get_main_tree_node_val - returns the key value of a main tree node.
+      get_sub_tree_node_val - returns the key value of a sub tree node.
+ */
+static rb_tree_t * get_sub_tree(rb_tree_node_t *main_tree_node);
+static unsigned int get_sub_tree_max(rb_tree_node_t *main_tree_node);
+static unsigned int get_main_tree_node_val(rb_tree_node_t *main_tree_node);
+static unsigned int get_sub_tree_node_val(rb_tree_node_t *sub_tree_node);
+
+/* The following are check_box and get_box implementations that can be called on either of the
+   two main trees, and are general. The real get_box and check_box would call directly to these
+   functions with the main tree that is smaller.
+ */
+static bool box_factory_check_by_input(rb_tree_t *tree, unsigned int main_val, unsigned int sub_val);
+static bool box_factory_get_by_input(rb_tree_t *tree,
+                                     unsigned int main_val,
+                                     unsigned int sub_val,
+                                     unsigned int *found_main_val,
+                                     unsigned int *found_sub_val);
 
 
 box_factory_t* box_factory_create()
@@ -103,22 +118,74 @@ bool box_factory_remove(box_factory_t *factory, unsigned int side, unsigned int 
     return true;
 }
 
-/* TODO: Implement! */
-box_key_t* box_factory_get_box(box_factory_t *factory, unsigned int side, unsigned int height, unsigned int *found_side, unsigned int *found_height)
+
+bool box_factory_get_box(box_factory_t *factory, unsigned int side, unsigned int height, unsigned int *found_side, unsigned int *found_height)
 {
+    if (factory->tree_by_height->count == 0) {
+        return false;
+    }
+
     if (factory->tree_by_height->count > factory->tree_by_side->count){
         return box_factory_get_by_input(factory->tree_by_side, side * side, height, found_side, found_height);
     }
     return box_factory_get_by_input(factory->tree_by_height, height, side * side, found_height, found_side);
 }
 
-box_key_t* box_factory_get_by_input(rb_tree_t *tree,
-                                    unsigned int main_val,
-                                    unsigned int sub_val,
-                                    unsigned int *found_main_val,
-                                    unsigned int *found_sub_val)
+static bool box_factory_get_by_input(rb_tree_t *tree,
+                                     unsigned int main_val,
+                                     unsigned int sub_val,
+                                     unsigned int *found_main_val,
+                                     unsigned int *found_sub_val)
 {
-    return NULL;
+    rb_tree_node_t *node = NULL;
+    rb_tree_node_t *sub_node = NULL;
+    rb_tree_node_t *min_node = NULL;
+    rb_tree_node_t *min_sub_node = NULL;
+    box_main_tree_node_t target_node = {.val = main_val, .subtree = NULL};
+    box_key_t target_subnode = {.val = sub_val};
+    unsigned int min_volume = 0;
+    unsigned int volume = 0;
+
+    node = rb_tree_search_smallest(tree, &target_node);
+
+    while (node && (get_sub_tree_max(node) < sub_val)) {
+        node = rb_tree_successor(tree, node);
+    }
+
+    if (NULL == node) {
+        return NULL;
+    }
+
+    sub_node = rb_tree_search_smallest(get_sub_tree(node), &target_subnode);
+
+    /* sub_node must exist in this flow. */
+    assert(sub_node);
+
+    min_volume = get_main_tree_node_val(node) * get_sub_tree_node_val(sub_node);
+    min_node = node;
+    min_sub_node = sub_node;
+
+    while (node && (min_volume / get_main_tree_node_val(node) >= sub_val)) {
+        node = rb_tree_successor(tree, node);
+
+        if ((NULL == node) || (get_sub_tree_max(node) < sub_val)) {
+            continue;
+        }
+
+        sub_node = rb_tree_search_smallest(get_sub_tree(node), &target_subnode);
+
+        volume = get_main_tree_node_val(node) * get_sub_tree_node_val(sub_node);
+        if (min_volume > volume) {
+            min_volume = volume;
+            min_node = node;
+            min_sub_node = sub_node;
+        }
+    }
+
+    *found_main_val = get_main_tree_node_val(min_node);
+    *found_sub_val = get_sub_tree_node_val(min_sub_node);
+
+    return true;
 }
 
 
@@ -130,7 +197,7 @@ bool box_factory_check_box(box_factory_t *factory, unsigned int side, unsigned i
     return box_factory_check_by_input(factory->tree_by_height, height, side * side);
 }
 
-bool box_factory_check_by_input(rb_tree_t *tree, unsigned int main_val, unsigned int sub_val)
+static bool box_factory_check_by_input(rb_tree_t *tree, unsigned int main_val, unsigned int sub_val)
 {
     rb_tree_node_t *main_node = NULL;
     box_main_tree_node_t *main_key = NULL;
@@ -144,10 +211,11 @@ bool box_factory_check_by_input(rb_tree_t *tree, unsigned int main_val, unsigned
     if (NULL == main_node){
         return false;
     }
+
     main_key = (box_main_tree_node_t*)main_node->key;
-    while ( (NULL != main_node) && (-1 == main_key->subtree->key_cmp(main_key->subtree->max->key, &target_subnode))){
+    while ((NULL != main_node) && (-1 == main_key->subtree->key_cmp(main_key->subtree->max->key, &target_subnode))){
         main_node = rb_tree_successor(tree, main_node);
-        if ( NULL != main_key){
+        if (NULL != main_node){
             main_key = (box_main_tree_node_t*)(main_node->key);
         }
     }
@@ -155,6 +223,7 @@ bool box_factory_check_by_input(rb_tree_t *tree, unsigned int main_val, unsigned
     if (NULL == main_node){
         return false;
     }
+
     return true;
 }
 
@@ -483,4 +552,56 @@ static int compare_keys(void *a, void *b)
 
     /* The sides of the two keys are equal */
     return 0;
+}
+
+static rb_tree_t * get_sub_tree(rb_tree_node_t *main_tree_node)
+{
+    box_main_tree_node_t *main_tree_key = NULL;
+
+    assert(main_tree_node);
+
+    main_tree_key = (box_main_tree_node_t *) main_tree_node->key;
+
+    assert(main_tree_key);
+
+    return main_tree_key->subtree;
+}
+
+static unsigned int get_sub_tree_max(rb_tree_node_t *main_tree_node)
+{
+    box_main_tree_node_t *main_tree_key = NULL;
+    rb_tree_node_t *max_node = NULL;
+    box_key_t *max_key = NULL;
+    rb_tree_t *tree = NULL;
+
+    main_tree_key = (box_main_tree_node_t *) main_tree_node->key;
+
+    assert(main_tree_key);
+
+    tree = main_tree_key->subtree;
+    max_node = tree->max;
+
+    /* We assume that there are nodes in the tree */
+    assert(max_node);
+    assert(max_node != &(tree->nil));
+
+    max_key = (box_key_t *) max_node->key;
+
+    assert(max_key);
+
+    return max_key->val;
+}
+
+static unsigned int get_main_tree_node_val(rb_tree_node_t *main_tree_node)
+{
+    box_main_tree_node_t *main_tree_key = (box_main_tree_node_t *) main_tree_node->key;
+
+    return main_tree_key->val;
+}
+
+static unsigned int get_sub_tree_node_val(rb_tree_node_t *sub_tree_node)
+{
+    box_key_t *sub_tree_key = (box_key_t *) sub_tree_node->key;
+
+    return sub_tree_key->val;
 }
