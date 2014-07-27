@@ -470,7 +470,7 @@ rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node)
         }
 
         if (y == tree->head) {
-            return &(tree->nil);
+            return NULL;
         }
 
         return IS_NIL(tree, y) ? NULL : y;
