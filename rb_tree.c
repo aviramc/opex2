@@ -460,7 +460,8 @@ rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node)
         while (!IS_NIL(tree, y->left)) {
             y = y->left;
         }
-        return y;
+
+        return IS_NIL(tree, y) ? NULL : y;
     } else {
         y = node->parent;
         while (node == y->right) {
@@ -472,7 +473,7 @@ rb_tree_node_t* rb_tree_successor(rb_tree_t *tree, rb_tree_node_t *node)
             return &(tree->nil);
         }
 
-        return y;
+        return IS_NIL(tree, y) ? NULL : y;
     }
 }
 
