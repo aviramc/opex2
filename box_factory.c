@@ -104,14 +104,57 @@ bool box_factory_remove(box_factory_t *factory, unsigned int side, unsigned int 
 }
 
 /* TODO: Implement! */
-box_key_t * box_factory_get_box(box_factory_t *factory, unsigned int side, unsigned int height)
+box_key_t* box_factory_get_box(box_factory_t *factory, unsigned int side, unsigned int height, unsigned int *found_side, unsigned int *found_height)
+{
+    if (factory->tree_by_height->count > factory->tree_by_side->count){
+        return box_factory_get_by_input(factory->tree_by_side, side * side, height, found_side, found_height);
+    }
+    return box_factory_get_by_input(factory->tree_by_height, height, side * side, found_height, found_side);
+}
+
+box_key_t* box_factory_get_by_input(rb_tree_t *tree,
+                                    unsigned int main_val,
+                                    unsigned int sub_val,
+                                    unsigned int *found_main_val,
+                                    unsigned int *found_sub_val)
 {
     return NULL;
 }
 
-/* TODO: Implement! */
+
 bool box_factory_check_box(box_factory_t *factory, unsigned int side, unsigned int height)
 {
+    if (factory->tree_by_height->count > factory->tree_by_side->count){
+        return box_factory_check_by_input(factory->tree_by_side, side * side, height);
+    }
+    return box_factory_check_by_input(factory->tree_by_height, height, side * side);
+}
+
+bool box_factory_check_by_input(rb_tree_t *tree, unsigned int main_val, unsigned int sub_val)
+{
+    rb_tree_node_t *main_node = NULL;
+    box_main_tree_node_t *main_key = NULL;
+    box_main_tree_node_t target_node;
+    box_key_t target_subnode;
+
+    target_node.val = main_val;
+    target_subnode.val = sub_val;
+    main_node = rb_tree_search_smallest(tree, &target_node);
+
+    if (NULL == main_node){
+        return false;
+    }
+    main_key = (box_main_tree_node_t*)main_node->key;
+    while ( (NULL != main_node) && (-1 == main_key->subtree->key_cmp(main_key->subtree->max->key, &target_subnode))){
+        main_node = rb_tree_successor(tree, main_node);
+        if ( NULL != main_key){
+            main_key = (box_main_tree_node_t*)(main_node->key);
+        }
+    }
+
+    if (NULL == main_node){
+        return false;
+    }
     return true;
 }
 
