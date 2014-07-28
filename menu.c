@@ -18,13 +18,13 @@ void menu_run(menu_item_t menu_items[], unsigned int items)
     unsigned int option;
     bool running = true;
 
+    menu_print(menu_items, items);
     while (running) {
-        menu_print(menu_items, items);
-        scanf("%d", &option);
+        scanf("%u", &option);
         if (option < items) {
             running = menu_items[option].callback(menu_items[option].arg);
         } else {
-            printf("Invalid option: %d\n", option);
+            printf("Invalid option: %u\n", option);
         }
         printf("\n");
     }

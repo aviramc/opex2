@@ -20,6 +20,7 @@ bool box_menu_insert(void *box_factory_ptr)
     unsigned int height = 0;
 
     _get_dimensions(&side, &height);
+    printf("Requesting to inserted a box with side=%d and height=%d\n", side, height);
 
     if (!box_factory_insert(factory, side, height)) {
         printf("Fatal error: Insertion failed (out of memory)\n");
@@ -38,6 +39,7 @@ bool box_menu_remove(void *box_factory_ptr)
     unsigned int height = 0;
 
     _get_dimensions(&side, &height);
+    printf("Requesting to removed a box with side=%d and height=%d\n", side, height);
 
     if (!box_factory_remove(factory, side, height)) {
         printf("Error: Box size not found\n");
@@ -58,6 +60,7 @@ bool box_menu_get(void *box_factory_ptr)
     bool found = false;
 
     _get_dimensions(&side, &height);
+    printf("Searching for a box with minimum side=%d and height=%d\n", side, height);
 
     found = box_factory_get_box(factory, side, height, &found_side_square, &found_height);
     if (found) {
@@ -76,6 +79,7 @@ bool box_menu_check(void *box_factory_ptr)
     unsigned int height = 0;
 
     _get_dimensions(&side, &height);
+    printf("Checking if a box with minimum side=%d and height=%d exists\n", side, height);
 
     if (!box_factory_check_box(factory, side, height)) {
         printf("No matching box exists\n");
